@@ -1,0 +1,66 @@
+import numpy as np
+from pathlib import Path
+from rosbags.rosbag2 import Reader
+from rosbags.typesys import Stores, get_typestore
+
+BAG_PATH = Path('/mnt/c/small_filtered_bag')
+OUT_DIR = Path('./extracted')
+
+typestore = get_typestore(Stores.ROS2_HUMBLE)
+
+TOPICS = {
+    '/odom',
+    '/track_vibration_velocity',
+}
+
+odom_time = []
+odom_x = []
+
+vib_time = []
+vib_value = []
+
+print("Reading bag...")
+
+with Reader(BAG_PATH) as reader:
+
+    conns = [c for c in reader.connections if c.topic in TOPICS]
+
+    for conn, ts, raw in reader.messages(connections=conns):
+
+        msg = typestore.deserialize_cdr(raw, conn.msgtype)
+
+        t = ts * 1e-9
+
+        if conn.topic == '/odom':
+
+            odom_time.append(t)
+            odom_x.append(
+                msg.pose.pose.position.x
+            )
+
+        elif conn.topic == '/track_vibration_velocity':
+
+            vib_time.append(t)
+            vib_value.append(msg.data)
+
+odom_time = np.array(odom_time)
+odom_x = np.array(odom_x)
+
+vib_time = np.array(vib_time)
+vib_value = np.array(vib_value)
+
+np.save(OUT_DIR / 'odom_time.npy', odom_time)
+np.save(OUT_DIR / 'odom_x.npy', odom_x)
+
+np.save(OUT_DIR / 'vib_time.npy', vib_time)
+np.save(OUT_DIR / 'vib_value.npy', vib_value)
+
+print("\nExtraction complete")
+print("Odom samples :", len(odom_time))
+print("Vibration samples :", len(vib_time))
+
+print("\nTrack range:")
+print(odom_x[0], "->", odom_x[-1])
+
+print("\nVibration range:")
+print(vib_value.min(), "->", vib_value.max())
