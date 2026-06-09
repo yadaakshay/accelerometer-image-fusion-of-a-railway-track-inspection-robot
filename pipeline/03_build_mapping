@@ -1,0 +1,48 @@
+import numpy as np
+
+OFFSET = 1.20
+
+img_pos = np.load("./extracted/img_pos.npy")
+vib_pos = np.load("./extracted/vib_pos.npy")
+vib_val = np.load("./extracted/vib_value.npy")
+
+frame_vibration = []
+frame_status = []
+
+for cam_pos in img_pos:
+
+    target_pos = cam_pos + OFFSET
+
+    if target_pos > vib_pos.max():
+
+        frame_vibration.append(np.nan)
+        frame_status.append(0)
+
+        continue
+
+    idx = np.argmin(
+        np.abs(vib_pos - target_pos)
+    )
+
+    frame_vibration.append(
+        vib_val[idx]
+    )
+
+    frame_status.append(1)
+
+frame_vibration = np.array(frame_vibration)
+frame_status = np.array(frame_status)
+
+np.save(
+    "./extracted/frame_vibration_final.npy",
+    frame_vibration
+)
+
+np.save(
+    "./extracted/frame_status.npy",
+    frame_status
+)
+
+print("Frames:", len(frame_vibration))
+print("Mapped:", np.sum(frame_status == 1))
+print("No data:", np.sum(frame_status == 0))
