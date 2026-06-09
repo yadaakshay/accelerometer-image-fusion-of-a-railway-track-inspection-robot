@@ -1,0 +1,258 @@
+import cv2
+import numpy as np
+from pathlib import Path
+
+# ==========================================
+# LOAD DATA
+# ==========================================
+
+rgb_dir = Path("./extracted/rgb")
+
+img_pos = np.load("./extracted/img_pos.npy")
+vib = np.load("./extracted/frame_vibration_final.npy")
+events = np.load("./extracted/event_frames.npy")
+
+plot_bg = cv2.imread("./extracted/plot_background.png")
+
+# Do NOT resize if already 1280x280
+plot_bg = cv2.resize(plot_bg, (1280, 280))
+
+# ==========================================
+# EVENT WINDOW
+# ==========================================
+
+event_set = set()
+
+for e in events:
+    for k in range(-15, 16):
+        idx = int(e) + k
+
+        if idx >= 0:
+            event_set.add(idx)
+
+# ==========================================
+# VIDEO WRITER
+# ==========================================
+
+fps = 30
+
+writer = cv2.VideoWriter(
+    "dashboard_video.mp4",
+    cv2.VideoWriter_fourcc(*"mp4v"),
+    fps,
+    (1280, 1080)
+)
+
+total = len(img_pos)
+
+x_min = img_pos.min()
+x_max = img_pos.max()
+
+# Actual graph area inside matplotlib figure
+PLOT_LEFT = 95
+PLOT_RIGHT = 1230
+PLOT_WIDTH = PLOT_RIGHT - PLOT_LEFT
+
+# Width of highlighted region in meters
+VIEW_WIDTH = 1.20
+
+# ==========================================
+# MAIN LOOP
+# ==========================================
+
+for i in range(total):
+
+    frame_path = rgb_dir / f"{i:05d}.png"
+
+    rgb = cv2.imread(str(frame_path))
+
+    if rgb is None:
+        continue
+
+    rgb = cv2.resize(rgb, (1280, 720))
+
+    # ==========================================
+    # INFO STRIP
+    # ==========================================
+
+    info = np.ones(
+        (80, 1280, 3),
+        dtype=np.uint8
+    ) * 255
+
+    position = img_pos[i]
+    vibration = vib[i]
+
+    if np.isnan(vibration):
+
+        vib_text = "NO DATA"
+        status = "ROLLER NOT REACHED"
+
+    else:
+
+        vib_text = f"{vibration:.3f}"
+
+        if i in event_set:
+            status = "TRACK EVENT"
+        else:
+            status = "NORMAL"
+
+    cv2.putText(
+        info,
+        f"Track Position: {position:.3f} m",
+        (20, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 0, 0),
+        2
+    )
+
+    cv2.putText(
+        info,
+        f"Vibration: {vib_text}",
+        (470, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 0, 0),
+        2
+    )
+
+    status_color = (
+        (0, 0, 255)
+        if status == "TRACK EVENT"
+        else (0, 0, 0)
+    )
+
+    cv2.putText(
+        info,
+        f"Status: {status}",
+        (850, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        status_color,
+        2
+    )
+
+    # ==========================================
+    # PLOT SECTION
+    # ==========================================
+
+    plot = plot_bg.copy()
+
+    # Center highlighted region on current track position
+    marker_pos = position
+
+    left_pos = marker_pos - VIEW_WIDTH / 2
+    right_pos = marker_pos + VIEW_WIDTH / 2
+
+    x1 = int(
+        PLOT_LEFT
+        + ((left_pos - x_min) / (x_max - x_min))
+        * PLOT_WIDTH
+    )
+
+    x2 = int(
+        PLOT_LEFT
+        + ((right_pos - x_min) / (x_max - x_min))
+        * PLOT_WIDTH
+    )
+
+    x1 = max(0, min(plot.shape[1] - 1, x1))
+    x2 = max(0, min(plot.shape[1] - 1, x2))
+
+    # Shaded region
+
+    overlay = plot.copy()
+
+    cv2.rectangle(
+        overlay,
+        (x1, 0),
+        (x2, plot.shape[0]),
+        (220, 220, 255),
+        -1
+    )
+
+    plot = cv2.addWeighted(
+        overlay,
+        0.35,
+        plot,
+        0.65,
+        0
+    )
+
+    # Left boundary
+
+    cv2.line(
+        plot,
+        (x1, 0),
+        (x1, plot.shape[0]),
+        (0, 0, 255),
+        2
+    )
+
+    # Right boundary
+
+    cv2.line(
+        plot,
+        (x2, 0),
+        (x2, plot.shape[0]),
+        (0, 0, 255),
+        2
+    )
+
+    # Center marker
+
+    xc = (x1 + x2) // 2
+
+    cv2.line(
+        plot,
+        (xc, 0),
+        (xc, plot.shape[0]),
+        (0, 255, 0),
+        2
+    )
+
+    cv2.putText(
+        plot,
+        "Current Track Section",
+        (20, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 0, 0),
+        2
+    )
+
+    cv2.putText(
+        plot,
+        f"Window Width = {VIEW_WIDTH:.2f} m",
+        (20, plot.shape[0] - 15),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (0, 0, 0),
+        2
+    )
+
+    # ==========================================
+    # COMBINE
+    # ==========================================
+
+    dashboard = np.vstack(
+        [
+            rgb,
+            info,
+            plot
+        ]
+    )
+
+    writer.write(dashboard)
+
+    if i % 500 == 0:
+        print(f"{i}/{total}")
+
+# ==========================================
+# SAVE
+# ==========================================
+
+writer.release()
+
+print("\nSaved dashboard_video.mp4")
