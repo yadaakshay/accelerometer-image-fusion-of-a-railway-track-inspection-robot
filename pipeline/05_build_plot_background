@@ -1,0 +1,31 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+vib = np.load("./extracted/frame_vibration_final.npy")
+pos = np.load("./extracted/img_pos.npy")
+
+plot_vib = np.copy(vib)
+plot_vib[np.isnan(plot_vib)] = 0
+
+plt.figure(figsize=(12.8, 2.8))
+
+plt.plot(
+    pos,
+    plot_vib,
+    linewidth=1
+)
+
+plt.xlabel("Track Position (m)")
+plt.ylabel("Vibration")
+plt.title("Track Vibration Velocity")
+
+plt.grid(True)
+
+plt.tight_layout()
+
+plt.savefig(
+    "./extracted/plot_background.png",
+    dpi=100
+)
+
+print("Saved plot_background.png")
