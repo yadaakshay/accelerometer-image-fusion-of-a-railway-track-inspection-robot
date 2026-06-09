@@ -1,0 +1,56 @@
+import numpy as np
+
+vib = np.load("./extracted/frame_vibration_final.npy")
+img_pos = np.load("./extracted/img_pos.npy")
+
+valid = ~np.isnan(vib)
+
+threshold = np.percentile(
+    vib[valid],
+    99
+)
+
+events = np.where(
+    (vib > threshold) & valid
+)[0]
+
+groups = []
+
+if len(events):
+
+    start = events[0]
+    prev = events[0]
+
+    for f in events[1:]:
+
+        if f <= prev + 5:
+            prev = f
+        else:
+            groups.append((start, prev))
+            start = f
+            prev = f
+
+    groups.append((start, prev))
+
+event_frames = []
+
+print("\nEVENTS\n")
+
+for i, (s, e) in enumerate(groups):
+
+    peak = s + np.argmax(vib[s:e+1])
+
+    event_frames.append(peak)
+
+    print(
+        f"Event {i+1:02d} | "
+        f"Frame {peak:4d} | "
+        f"Pos {img_pos[peak]:6.3f} m | "
+        f"Vib {vib[peak]:6.3f}"
+    )
+
+np.save(
+    "./extracted/event_frames.npy",
+    np.array(event_frames)
+)
+
