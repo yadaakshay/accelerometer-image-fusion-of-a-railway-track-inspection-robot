@@ -1,0 +1,34 @@
+import numpy as np
+
+img_times = np.load("./extracted/img_times.npy")
+
+odom_time = np.load("./extracted/odom_time.npy")
+odom_x    = np.load("./extracted/odom_x.npy")
+
+vib_time  = np.load("./extracted/vib_time.npy")
+
+# Interpolate odometry position
+
+img_pos = np.interp(
+    img_times,
+    odom_time,
+    odom_x
+)
+
+vib_pos = np.interp(
+    vib_time,
+    odom_time,
+    odom_x
+)
+
+np.save("./extracted/img_pos.npy", img_pos)
+np.save("./extracted/vib_pos.npy", vib_pos)
+
+print("Image positions:", len(img_pos))
+print("Vibration positions:", len(vib_pos))
+
+print("\nImage range:")
+print(img_pos[0], "->", img_pos[-1])
+
+print("\nVibration range:")
+print(vib_pos[0], "->", vib_pos[-1])
