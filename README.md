@@ -85,3 +85,13 @@ Image timestamp
 Odometry interpolation
       ↓
 Camera track position
+
+Vibration timestamp
+      ↓
+Odometry interpolation
+      ↓
+Vibration track position
+
+---
+
+### 3. Spatial Position Estimation
