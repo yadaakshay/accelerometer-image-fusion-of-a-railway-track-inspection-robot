@@ -223,10 +223,7 @@ pipeline/
 
 README.md
 ```
-
-The final pipeline does not require a separate vibration-plot background generation script.
-
----
+--
 
 ## Processing Flow
 
